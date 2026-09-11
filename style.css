@@ -1,0 +1,1012 @@
+@charset "UTF-8";
+
+/* 마인크래프트 폰트 및 기본 리셋 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  font-family: 'Consolas', 'Courier New', 'Pretendard', 'Malgun Gothic', monospace, sans-serif;
+  image-rendering: pixelated;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #000;
+  color: #fff;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* =========================================
+   1. 상단 HUD: 퀘스트 & 조작 버튼
+   ========================================= */
+.hud-top {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: auto;
+  z-index: 20;
+}
+
+/* 마인크래프트 원목/돌 테마 안전 점수 카드 */
+.safety-score-card {
+  background: rgba(30, 30, 30, 0.92);
+  border: 4px solid #4a4a4a;
+  border-top-color: #888888;
+  border-left-color: #888888;
+  border-bottom-color: #222222;
+  border-right-color: #222222;
+  padding: 10px 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+  min-width: 270px;
+}
+
+.score-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.score-icon {
+  font-size: 20px;
+}
+
+.score-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 #000000;
+}
+
+.score-bar-bg {
+  width: 100%;
+  height: 12px;
+  background: #111111;
+  border: 2px solid #555555;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.score-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff4444 0%, #ffbb00 50%, #55ff55 100%);
+  transition: width 0.4s ease;
+}
+
+.grade-badge {
+  font-size: 12px;
+  font-weight: bold;
+  color: #aaffaa;
+  text-align: right;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+/* 상단 우측 컨트롤 버튼 */
+.hud-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.hud-btn {
+  background: #555555;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 14px;
+  border: 3px solid;
+  border-color: #888888 #222222 #222222 #888888;
+  box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #000000;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #000000;
+  transition: background 0.1s, transform 0.1s;
+}
+
+.hud-btn:hover {
+  background: #6e6e6e;
+  color: #ffffa0;
+  transform: translateY(-2px);
+}
+
+.hud-btn:active {
+  transform: translateY(1px);
+}
+
+/* =========================================
+   2. 인게임 정통 마인크래프트 HUD (크로스헤어, 하트, 허기, 핫바)
+   ========================================= */
+.mc-hud-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 중앙 십자선 (Invert Blend) */
+.mc-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+
+.mc-crosshair::before, .mc-crosshair::after {
+  content: '';
+  position: absolute;
+  background: #ffffff;
+}
+
+.mc-crosshair::before {
+  top: 7px;
+  left: 0;
+  width: 16px;
+  height: 2px;
+}
+
+.mc-crosshair::after {
+  top: 0;
+  left: 7px;
+  width: 2px;
+  height: 16px;
+}
+
+/* 하단 바 (하트, 허기, 경험치, 9칸 핫바) */
+.mc-hud-bottom {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 20;
+}
+
+/* 하트(체력 10개) & 닭다리(허기 10개) */
+.mc-status-row {
+  display: flex;
+  justify-content: space-between;
+  width: 440px;
+  margin-bottom: 6px;
+}
+
+.mc-hearts, .mc-food {
+  display: flex;
+  gap: 3px;
+}
+
+.mc-heart, .mc-drumstick {
+  width: 18px;
+  height: 18px;
+  font-size: 16px;
+  display: inline-block;
+  line-height: 18px;
+  text-align: center;
+}
+
+.mc-heart.shaking {
+  animation: mc-heart-shake 0.2s infinite alternate;
+}
+
+@keyframes mc-heart-shake {
+  from { transform: translateY(-2px); }
+  to { transform: translateY(2px); }
+}
+
+/* 초록색 경험치 바 (XP Bar) */
+.mc-xp-bar-wrap {
+  position: relative;
+  width: 440px;
+  height: 10px;
+  background: #111111;
+  border: 2px solid #333333;
+  margin-bottom: 6px;
+}
+
+.mc-xp-bar-fill {
+  height: 100%;
+  background: #55ff55;
+  box-shadow: inset 0 1px 0 #aaffaa, inset 0 -1px 0 #00aa00;
+  transition: width 0.3s ease;
+}
+
+.mc-xp-level-num {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  font-weight: bold;
+  color: #80ff20;
+  text-shadow: 
+    -1px -1px 0 #000,  
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000;
+}
+
+/* 마인크래프트 9칸 정통 핫바 */
+.mc-hotbar {
+  display: flex;
+  background: rgba(40, 40, 40, 0.9);
+  border: 4px solid #1e1e1e;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+}
+
+.mc-hotbar-slot {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: 2px solid #555555;
+  border-top-color: #373737;
+  border-left-color: #373737;
+  border-bottom-color: #8b8b8b;
+  border-right-color: #8b8b8b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #8b8b8b;
+  cursor: pointer;
+}
+
+.mc-hotbar-slot.active {
+  transform: scale(1.1);
+  z-index: 2;
+  border: 3px solid #ffffff;
+  box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #555555;
+  background: #9e9e9e;
+}
+
+.mc-slot-num {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 10px;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.mc-slot-item-icon {
+  font-size: 22px;
+}
+
+.mc-slot-item-count {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 11px;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000;
+  font-weight: bold;
+}
+
+.mc-held-item-name {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffffff;
+  font-size: 16px;
+  text-shadow: 2px 2px 0 #000;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.mc-held-item-name.show {
+  opacity: 1;
+}
+
+/* =========================================
+   3. 마인크래프트 발전과제 (Advancements) 토스트
+   ========================================= */
+.mc-advancement-toast {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #212121;
+  border: 4px solid #ffffff;
+  border-top-color: #dddddd;
+  border-left-color: #dddddd;
+  border-bottom-color: #555555;
+  border-right-color: #555555;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+  animation: mc-advancement-slide 4s forwards;
+  z-index: 300;
+}
+
+@keyframes mc-advancement-slide {
+  0% { transform: translateX(120%); opacity: 0; }
+  10% { transform: translateX(0); opacity: 1; }
+  85% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+.mc-adv-icon {
+  font-size: 30px;
+  background: #444444;
+  border: 2px solid #ffffff;
+  padding: 4px;
+}
+
+.mc-adv-text .mc-adv-header {
+  font-size: 13px;
+  color: #ffff55;
+  text-shadow: 1px 1px 0 #3f3f00;
+}
+
+.mc-adv-text .mc-adv-title {
+  font-size: 16px;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+/* =========================================
+   4. E키 마인크래프트 인벤토리 & 조합대 GUI
+   ========================================= */
+.mc-inventory-gui {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  background: #c6c6c6;
+  border: 4px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+  padding: 16px;
+  color: #3f3f3f;
+  pointer-events: auto;
+  z-index: 400;
+}
+
+.mc-inv-top-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mc-avatar-preview-box {
+  width: 140px;
+  height: 180px;
+  background: #000000;
+  border: 3px inset #373737;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.mc-avatar-preview-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.mc-crafting-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mc-crafting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 42px);
+  grid-template-rows: repeat(2, 42px);
+  gap: 4px;
+}
+
+.mc-craft-slot, .mc-inv-slot {
+  width: 42px;
+  height: 42px;
+  background: #8b8b8b;
+  border: 2px solid;
+  border-color: #373737 #ffffff #ffffff #373737;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  position: relative;
+}
+
+.mc-craft-slot:hover, .mc-inv-slot:hover {
+  background: #a0a0a0;
+}
+
+.mc-craft-arrow {
+  font-size: 24px;
+  font-weight: bold;
+  color: #3f3f3f;
+}
+
+.mc-craft-result-slot {
+  width: 52px;
+  height: 52px;
+  background: #8b8b8b;
+  border: 3px solid;
+  border-color: #373737 #ffffff #ffffff #373737;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.mc-main-inv-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 42px);
+  grid-template-rows: repeat(3, 42px);
+  gap: 4px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.mc-inv-hotbar-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 42px);
+  gap: 4px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.mc-inv-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #3f3f3f;
+  margin-bottom: 4px;
+}
+
+/* =========================================
+   5. ESC 게임 일시정지 메뉴 (Pause Menu)
+   ========================================= */
+.mc-pause-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  pointer-events: auto;
+}
+
+.mc-pause-title {
+  font-size: 28px;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 #000000;
+  margin-bottom: 24px;
+}
+
+.mc-pause-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+}
+
+.mc-btn {
+  background: #737373;
+  color: #e0e0e0;
+  font-size: 18px;
+  padding: 12px 18px;
+  border: 4px solid;
+  border-color: #a8a8a8 #383838 #383838 #a8a8a8;
+  box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #000000;
+  cursor: pointer;
+  text-align: center;
+  text-shadow: 2px 2px 0 #2b2b2b;
+  position: relative;
+  transition: filter 0.1s;
+}
+
+.mc-btn:hover {
+  background: #8b8b8b;
+  color: #ffffa0;
+  filter: brightness(1.1);
+  border-color: #c0c0c0 #404040 #404040 #c0c0c0;
+}
+
+.mc-btn:active {
+  border-color: #383838 #a8a8a8 #a8a8a8 #383838;
+  box-shadow: inset -2px -2px 0 #ffffff, inset 2px 2px 0 #000000;
+  transform: translateY(2px);
+}
+
+/* =========================================
+   6. 멘토 다람쥐 대화창 (Dialogue Box)
+   ========================================= */
+.dialogue-box {
+  position: absolute;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 680px;
+  background: rgba(28, 18, 10, 0.95);
+  border: 4px solid #c98847;
+  border-top-color: #ffd79a;
+  border-left-color: #ffd79a;
+  padding: 16px 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
+  z-index: 100;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 40px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.squirrel-avatar {
+  font-size: 46px;
+  background: #4a2810;
+  border: 3px solid #ffd79a;
+  border-radius: 50%;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialogue-content {
+  flex: 1;
+}
+
+.mentor-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffcc00;
+  margin-bottom: 4px;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.dialogue-text {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.dialogue-close {
+  background: #ffaa00;
+  border: 2px solid #ffffff;
+  color: #111111;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #000000;
+  white-space: nowrap;
+}
+
+.dialogue-close:hover {
+  background: #ffc444;
+}
+
+/* =========================================
+   7. 모달 공통 및 퀴즈 / 수료증 / 안내 도감
+   ========================================= */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  pointer-events: auto;
+}
+
+.modal-card {
+  background: #252525;
+  border: 4px solid #666666;
+  border-top-color: #aaaaaa;
+  border-left-color: #aaaaaa;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #444444;
+  padding-bottom: 12px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* 퀴즈 카드 */
+.quiz-card {
+  max-width: 560px;
+}
+
+.badge {
+  background: #ff5500;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 2px;
+}
+
+.quiz-question {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  color: #ffffff;
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quiz-opt-btn {
+  background: #333333;
+  border: 3px solid #555555;
+  border-top-color: #777777;
+  border-left-color: #777777;
+  color: #ffffff;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.quiz-opt-btn:hover {
+  background: #444444;
+  transform: translateX(4px);
+}
+
+.quiz-opt-btn.correct {
+  background: #1a4d2e;
+  border-color: #55ff55;
+  color: #55ff55;
+}
+
+.quiz-opt-btn.wrong {
+  background: #5a1e1e;
+  border-color: #ff5555;
+  color: #ff8888;
+}
+
+.quiz-feedback {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.quiz-feedback.success {
+  background: rgba(46, 125, 50, 0.4);
+  border: 2px solid #55ff55;
+  color: #88ffa0;
+}
+
+.quiz-feedback.error {
+  background: rgba(198, 40, 40, 0.4);
+  border: 2px solid #ff5555;
+  color: #ffa0a0;
+}
+
+/* 수료증 디자인 (마인크래프트 금장 테마) */
+.cert-card {
+  max-width: 680px;
+  background: #faf6eb;
+  color: #222222;
+  border: 8px solid #c98847;
+  padding: 24px;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.9);
+}
+
+.cert-border {
+  border: 4px double #8b5a2b;
+  padding: 24px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.cert-badge {
+  font-size: 14px;
+  font-weight: 800;
+  color: #b8860b;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.cert-title {
+  font-size: 30px;
+  font-weight: 900;
+  color: #3b200b;
+  margin-bottom: 4px;
+  letter-spacing: 2px;
+}
+
+.cert-subtitle {
+  font-size: 13px;
+  color: #777777;
+  margin-bottom: 20px;
+}
+
+.cert-recipient {
+  margin: 16px 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.cert-recipient input {
+  font-size: 20px;
+  font-weight: 800;
+  color: #2873d9;
+  border: none;
+  border-bottom: 3px solid #2873d9;
+  text-align: center;
+  width: 180px;
+  outline: none;
+  background: transparent;
+}
+
+.cert-body {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #444444;
+  margin: 20px auto;
+  max-width: 500px;
+}
+
+.cert-date {
+  margin-top: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #555555;
+}
+
+.cert-seal-wrap {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.cert-seal {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px dashed #cc2222;
+  color: #cc2222;
+  font-weight: 900;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-10deg);
+}
+
+.seal-star {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.cert-issuer {
+  font-size: 17px;
+  font-weight: 900;
+  color: #2b1d0c;
+}
+
+.cert-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* 안내 도감 */
+.guide-card {
+  max-width: 650px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.guide-item {
+  display: flex;
+  gap: 14px;
+  background: #2b2b2b;
+  padding: 12px 16px;
+  border-left: 4px solid #55ff55;
+}
+
+.g-num {
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffcc00;
+  min-width: 24px;
+}
+
+.guide-item strong {
+  display: block;
+  font-size: 15px;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.guide-item p {
+  font-size: 13px;
+  color: #bbbbbb;
+  line-height: 1.4;
+}
+
+/* 버튼 스타일들 */
+.btn {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  background: #2873d9;
+  color: #ffffff;
+}
+
+.btn-gold {
+  background: #ffaa00;
+  color: #111111;
+}
+
+.btn-secondary {
+  background: #444444;
+  color: #ffffff;
+}
+
+/* =========================================
+   8. 특수 효과 및 상태
+   ========================================= */
+/* CO 독성 화면 왜곡 */
+.mc-nausea-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 40%, rgba(20, 80, 20, 0.6) 80%, rgba(10, 30, 10, 0.9) 100%);
+  mix-blend-mode: color-burn;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.mc-nausea-overlay.active {
+  opacity: 1;
+  animation: mc-nausea-pulse 2s infinite ease-in-out alternate;
+}
+
+@keyframes mc-nausea-pulse {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.02) rotate(0.5deg); }
+  100% { transform: scale(0.98) rotate(-0.5deg); }
+}
+
+/* 상호작용 팁 (조준 블록/객체 안내) */
+.mc-action-tip {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  border: 2px solid #ffffff;
+  padding: 6px 14px;
+  color: #ffff55;
+  font-size: 15px;
+  text-shadow: 1px 1px 0 #000000;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 50;
+}
+
+/* 공통 유틸리티 */
+.hidden {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* 인쇄 시 스타일 */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #certPrintArea, #certPrintArea * {
+    visibility: visible;
+  }
+  #certPrintArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    border: 4px solid #8b5a2b;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
