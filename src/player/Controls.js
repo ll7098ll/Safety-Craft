@@ -58,6 +58,9 @@ export class Controls {
         case 'KeyE':
           if (this.onToggleInventory) this.onToggleInventory();
           break;
+        case 'KeyF':
+          if (this.onInteract) this.onInteract();
+          break;
         case 'Escape':
           if (this.onTogglePause) this.onTogglePause();
           break;

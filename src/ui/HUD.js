@@ -1,12 +1,13 @@
 import { sounds } from '../audio/SoundManager.js';
 
 export class HUD {
-  constructor(container, questManager, safetyGauge, dayNightCycle, player) {
+  constructor(container, questManager, safetyGauge, dayNightCycle, player, rpgSystem = null) {
     this.container = container;
     this.questManager = questManager;
     this.safetyGauge = safetyGauge;
     this.dayNightCycle = dayNightCycle;
     this.player = player;
+    this.rpgSystem = rpgSystem;
 
     this.hotbarSlots = [
       { id: 'extinguisher', name: '안전 소화기', icon: '🧯', count: 1 },
@@ -22,6 +23,7 @@ export class HUD {
 
     this.selectedHotbarIndex = 0;
     this.heldItemTimer = null;
+    this.onOpenJournal = null;
 
     this.initHTML();
     this.bindEvents();
@@ -43,7 +45,7 @@ export class HUD {
       <!-- 발전과제 (Advancements) 팝업 컨테이너 -->
       <div id="advancementContainer"></div>
 
-      <!-- 상단 HUD 영역: 퀘스트 카드 & 상단 버튼들 -->
+      <!-- 상단 HUD 영역: 퀘스트 카드 & RPG 레벨/도토리 & 상단 버튼들 -->
       <div class="hud-top">
         <div class="safety-score-card">
           <div class="score-header">
@@ -56,7 +58,20 @@ export class HUD {
           <div class="grade-badge" id="questStepText">위험 표지판 3곳 조사하기</div>
         </div>
 
+        <!-- RPG 스탯 뱃지 (레벨/칭호/도토리 지갑) -->
+        <div class="rpg-hud-stats">
+          <div class="rpg-level-badge">
+            <span class="rpg-lvl-num" id="rpgLevelText">Lv.1</span>
+            <span class="rpg-title-name" id="rpgTitleText">🌱 캠핑 입문자</span>
+          </div>
+          <div class="rpg-wallet-chip">
+            <span class="rpg-acorn-icon">🌰</span>
+            <span class="rpg-acorn-count" id="rpgAcornsText">120</span>
+          </div>
+        </div>
+
         <div class="hud-controls">
+          <button class="hud-btn hud-btn-gold" id="btnHudJournal">📜 퀘스트 북 (J)</button>
           <button class="hud-btn" id="btnHudView">🎥 시점 전환 (V)</button>
           <button class="hud-btn" id="btnHudDayNight">☀️ 낮/밤 전환</button>
           <button class="hud-btn" id="btnHudGuide">📖 안전 수칙</button>
@@ -158,7 +173,10 @@ export class HUD {
       topTitle: this.root.querySelector('#questTopTitle'),
       stepText: this.root.querySelector('#questStepText'),
       tipEl: this.root.querySelector('#mcActionTip'),
-      heldNameEl: this.root.querySelector('#mcHeldItemName')
+      heldNameEl: this.root.querySelector('#mcHeldItemName'),
+      rpgLevelText: this.root.querySelector('#rpgLevelText'),
+      rpgTitleText: this.root.querySelector('#rpgTitleText'),
+      rpgAcornsText: this.root.querySelector('#rpgAcornsText')
     };
 
     this.lastState = {
@@ -166,7 +184,9 @@ export class HUD {
       isNausea: null,
       questTitle: '',
       stepText: '',
-      interactionText: ''
+      interactionText: '',
+      rpgLevel: -1,
+      rpgAcorns: -1
     };
 
     const slots = this.root.querySelectorAll('.mc-hotbar-slot');
@@ -175,6 +195,21 @@ export class HUD {
         const idx = parseInt(slot.getAttribute('data-index'));
         this.selectHotbar(idx);
       });
+    });
+
+    // 팁 요소 클릭 시 액션 실행
+    this.cachedEls.tipEl.addEventListener('click', () => {
+      if (this.currentAction) {
+        this.currentAction();
+      }
+    });
+
+    // 퀘스트 북 버튼
+    const btnJournal = this.root.querySelector('#btnHudJournal');
+    btnJournal.addEventListener('click', () => {
+      if (this.onOpenJournal) {
+        this.onOpenJournal();
+      }
     });
 
     // 상단 버튼 이벤트
@@ -272,8 +307,21 @@ export class HUD {
     }, 4200);
   }
 
-  update(playerPos) {
+  update(playerPos, nearbyNPC = null, nearbyLitter = null, onNpcTalk = null, onLitterCollect = null) {
     if (!this.cachedEls) return;
+
+    // 0) RPG 스탯 갱신 (레벨, 칭호, 도토리)
+    if (this.rpgSystem) {
+      if (this.lastState.rpgLevel !== this.rpgSystem.level) {
+        this.lastState.rpgLevel = this.rpgSystem.level;
+        this.cachedEls.rpgLevelText.innerText = `Lv.${this.rpgSystem.level}`;
+        this.cachedEls.rpgTitleText.innerText = this.rpgSystem.getTitle();
+      }
+      if (this.lastState.rpgAcorns !== this.rpgSystem.acorns) {
+        this.lastState.rpgAcorns = this.rpgSystem.acorns;
+        this.cachedEls.rpgAcornsText.innerText = this.rpgSystem.acorns;
+      }
+    }
 
     // 1) 안전 점수 / XP 바 (Dirty Checking)
     const score = this.safetyGauge.getTotalSafetyPercent();
@@ -311,20 +359,37 @@ export class HUD {
       }
     }
 
-    // 4) 상호작용 팁
+    // 4) 상호작용 팁 (우선순위: 안전 미션 > NPC 대화 > 쓰레기 수거)
     const held = this.getSelectedItem();
     const interaction = this.questManager.checkNearbyInteraction(playerPos, held);
-    const newText = interaction ? interaction.text : '';
+
+    let newText = '';
+    let newAction = null;
+
+    if (interaction) {
+      newText = interaction.text;
+      newAction = interaction.action;
+    } else if (nearbyNPC) {
+      newText = `[F 또는 클릭] [${nearbyNPC.name}]과 대화하기`;
+      newAction = () => {
+        if (onNpcTalk) onNpcTalk(nearbyNPC);
+      };
+    } else if (nearbyLitter) {
+      newText = `[클릭] [${nearbyLitter.data.name}] 수거하기 (클린 캠핑)`;
+      newAction = () => {
+        if (onLitterCollect) onLitterCollect(nearbyLitter);
+      };
+    }
 
     if (this.lastState.interactionText !== newText) {
       this.lastState.interactionText = newText;
-      if (interaction) {
-        this.cachedEls.tipEl.innerText = interaction.text;
+      if (newText) {
+        this.cachedEls.tipEl.innerText = newText;
         this.cachedEls.tipEl.classList.remove('hidden');
       } else {
         this.cachedEls.tipEl.classList.add('hidden');
       }
     }
-    this.currentAction = interaction ? interaction.action : null;
+    this.currentAction = newAction;
   }
 }

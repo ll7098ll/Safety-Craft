@@ -228,6 +228,123 @@ class SoundManager {
     osc.start(now);
     osc.stop(now + 0.04);
   }
+
+  // RPG: NPC 대화 타이핑 효과음 (귀여운 비프음)
+  playNpcVoice(pitchMult = 1.0) {
+    if (!this.ctx || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    const baseFreq = (480 + Math.random() * 120) * pitchMult;
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.2, now + 0.04);
+
+    gain.gain.setValueAtTime(0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.005, now + 0.045);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  // RPG: 도토리 코인 획득 찰랑 소리
+  playCoin() {
+    if (!this.ctx || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    [987.77, 1318.51].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = now + idx * 0.06;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.005, t + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.13);
+    });
+  }
+
+  // RPG: 퀘스트 수락 소리
+  playQuestAccept() {
+    if (!this.ctx || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    const notes = [440, 554.37, 659.25]; // A major
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = now + idx * 0.08;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.2);
+    });
+  }
+
+  // RPG: 퀘스트 완료 팡파르 소리
+  playQuestComplete() {
+    if (!this.ctx || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C E G C
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = now + idx * 0.09;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.28);
+    });
+  }
+
+  // RPG: 레벨업 웅장한 아르페지오 소리
+  playLevelUp() {
+    if (!this.ctx || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    const notes = [392, 523.25, 659.25, 783.99, 1046.5, 1318.51];
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = now + idx * 0.07;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.35);
+    });
+  }
 }
 
 export const sounds = new SoundManager();

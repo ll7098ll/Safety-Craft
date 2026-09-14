@@ -8,11 +8,16 @@ import { Controls } from './player/Controls.js';
 import { SafetyGauge } from './gameplay/SafetyGauge.js';
 import { QuestManager } from './gameplay/QuestManager.js';
 import { QuizSystem } from './gameplay/QuizSystem.js';
+import { RPGSystem } from './gameplay/RPGSystem.js';
+import { NPCManager } from './entities/NPCManager.js';
 import { HUD } from './ui/HUD.js';
 import { Dialogue } from './ui/Dialogue.js';
 import { CertificateModal } from './ui/CertificateModal.js';
 import { InventoryGUI } from './ui/InventoryGUI.js';
 import { PauseMenu } from './ui/PauseMenu.js';
+import { RPGDialogueModal } from './ui/RPGDialogueModal.js';
+import { ShopModal } from './ui/ShopModal.js';
+import { QuestJournalModal } from './ui/QuestJournalModal.js';
 import { sounds } from './audio/SoundManager.js';
 
 class MinecraftSafetyGame {
@@ -31,9 +36,9 @@ class MinecraftSafetyGame {
     this.hitSoundCooldown = 0;
 
     this.initThree();
+    this.initGameplay();
     this.initWorld();
     this.initPlayer();
-    this.initGameplay();
     this.initUI();
     this.initEvents();
 
@@ -66,28 +71,32 @@ class MinecraftSafetyGame {
     this.container.appendChild(this.renderer.domElement);
   }
 
+  initGameplay() {
+    this.rpgSystem = new RPGSystem();
+    this.safetyGauge = new SafetyGauge();
+    this.quizSystem = new QuizSystem();
+  }
+
   initWorld() {
     this.voxelWorld = new VoxelWorld(this.scene);
     this.campingObjects = new CampingObjects(this.scene);
     this.dayNightCycle = new DayNightCycle(this.scene);
     this.wildBoar = new WildBoar(this.scene);
-  }
+    this.npcManager = new NPCManager(this.scene, this.rpgSystem);
 
-  initPlayer() {
-    this.player = new Player(this.scene, this.camera);
-    this.controls = new Controls(this.player, this.renderer.domElement);
-  }
-
-  initGameplay() {
-    this.safetyGauge = new SafetyGauge();
     this.questManager = new QuestManager(
       this.campingObjects,
       this.voxelWorld,
       this.safetyGauge,
       this.wildBoar,
-      this.dayNightCycle
+      this.dayNightCycle,
+      this.rpgSystem
     );
-    this.quizSystem = new QuizSystem();
+  }
+
+  initPlayer() {
+    this.player = new Player(this.scene, this.camera);
+    this.controls = new Controls(this.player, this.renderer.domElement);
   }
 
   initUI() {
@@ -97,8 +106,15 @@ class MinecraftSafetyGame {
       this.questManager,
       this.safetyGauge,
       this.dayNightCycle,
-      this.player
+      this.player,
+      this.rpgSystem
     );
+
+    // RPG 전용 모달들
+    this.rpgDialogue = new RPGDialogueModal(this.uiContainer, this.rpgSystem);
+    this.shopModal = new ShopModal(this.uiContainer, this.rpgSystem, this.player, this.hud);
+    this.questJournal = new QuestJournalModal(this.uiContainer, this.questManager, this.rpgSystem);
+    this.hud.onOpenJournal = () => this.questJournal.toggle();
 
     // 핫바 아이템 배열을 인벤토리에 연동
     this.inventoryGUI = new InventoryGUI(this.uiContainer, this.player, this.hud.hotbarSlots);
@@ -132,7 +148,7 @@ class MinecraftSafetyGame {
 
     // 바로 게임 시작! 친절한 가이드 멘트 출력
     setTimeout(() => {
-      this.dialogue.show("안녕! [세이프티 크래프트]에 온 걸 환영해! 나는 안전 멘토 [도토리 대장]이야. 위험 표지판을 조사하고 안전 구역을 찾아보자! (W,A,S,D로 이동 / 마우스 드래그로 시점 둘러보기)");
+      this.dialogue.show("안녕! [세이프티 크래프트]에 온 걸 환영해! 나는 안전 멘토 [도토리 대장]이야. 캠핑장 친구들과 대화(F 또는 우클릭)하고 [J]키로 퀘스트 북을 열어봐!");
     }, 600);
   }
 
@@ -158,21 +174,23 @@ class MinecraftSafetyGame {
       this.voxelWorld.updateBreakingProgress(null, -1);
     };
 
+    // F키: 상호작용
+    this.controls.onInteract = () => {
+      sounds.init();
+      this.handlePlayerInteraction();
+    };
+
     // 우클릭: 상호작용 또는 블록 설치
     this.controls.onRightClick = () => {
       sounds.init();
 
-      const held = this.hud.getSelectedItem();
-
-      // 1) 안전 미션 상호작용 먼저 검사
-      const interaction = this.questManager.checkNearbyInteraction(this.player.position, held);
-      if (interaction && interaction.action) {
-        interaction.action();
-        this.hud.refreshHotbar();
+      // 상호작용 먼저 시도
+      if (this.handlePlayerInteraction()) {
         return;
       }
 
-      // 2) 블록 설치 (손에 든 아이템이 블록인 경우)
+      // 블록 설치 (손에 든 아이템이 블록인 경우)
+      const held = this.hud.getSelectedItem();
       if (this.targetBlock && this.targetNormal && held) {
         const placeX = this.targetBlock.x + this.targetNormal.x;
         const placeY = this.targetBlock.y + this.targetNormal.y;
@@ -206,6 +224,12 @@ class MinecraftSafetyGame {
     this.controls.onTogglePause = () => {
       if (this.inventoryGUI.isOpen) {
         this.inventoryGUI.toggle();
+      } else if (this.rpgDialogue.isOpen) {
+        this.rpgDialogue.close();
+      } else if (this.shopModal.isOpen) {
+        this.shopModal.close();
+      } else if (this.questJournal.isOpen) {
+        this.questJournal.close();
       } else {
         this.pauseMenu.toggle();
       }
@@ -214,6 +238,64 @@ class MinecraftSafetyGame {
     this.controls.onHotbarChange = (idx) => {
       this.hud.selectHotbar(idx);
     };
+  }
+
+  // 플레이어 상호작용 통합 처리 (미션 > NPC 대화 > 쓰레기 수거)
+  handlePlayerInteraction() {
+    const held = this.hud.getSelectedItem();
+
+    // 1) 안전 미션 상호작용
+    const interaction = this.questManager.checkNearbyInteraction(this.player.position, held);
+    if (interaction && interaction.action) {
+      interaction.action();
+      this.hud.refreshHotbar();
+      return true;
+    }
+
+    // 2) 근처 NPC와 대화
+    const nearbyNPC = this.npcManager.getNearbyNPC(this.player.position);
+    if (nearbyNPC) {
+      this.openNPCDialogue(nearbyNPC);
+      return true;
+    }
+
+    // 3) 근처 쓰레기 수거 (클린 캠핑)
+    const nearbyLitter = this.npcManager.getNearbyLitter(this.player.position);
+    if (nearbyLitter) {
+      this.collectLitterItem(nearbyLitter);
+      return true;
+    }
+
+    return false;
+  }
+
+  openNPCDialogue(npc) {
+    if (!npc) return;
+    const dialogData = this.questManager.getNPCDialogue(
+      npc,
+      {
+        openShop: (shopType) => this.shopModal.open(shopType),
+        openQuiz: () => this.certModal.openQuiz(),
+        showNotice: (msg) => this.dialogue.show(msg),
+        closeDialog: () => this.rpgDialogue.close(),
+        refreshHotbar: () => this.hud.refreshHotbar()
+      },
+      this.hud.hotbarSlots
+    );
+
+    this.rpgDialogue.open(npc, dialogData);
+  }
+
+  collectLitterItem(litter) {
+    const collected = this.npcManager.collectLitter(litter.data.id);
+    if (collected) {
+      sounds.playPlace();
+      const isDone = this.rpgSystem.progressSideQuest('clean_campsite', 1);
+      this.hud.showAdvancement(`[${collected.name}] 수거 완료!`, '🧹');
+      if (isDone) {
+        this.dialogue.show('아린: 와! 쓰레기 3개를 모두 주웠구나! 나에게 와서 보고하고 보상을 받아가렴!');
+      }
+    }
   }
 
   updateRaycasting() {
@@ -288,6 +370,10 @@ class MinecraftSafetyGame {
     this.wildBoar.update(delta);
     this.dayNightCycle.update(delta);
 
+    // RPG 및 NPC 업데이트
+    this.rpgSystem.update(delta);
+    this.npcManager.update(delta, this.player.position);
+
     if (this.dayNightCycle.isNight()) {
       this.scene.fog.color.setHex(0x0c1322);
     } else {
@@ -295,7 +381,17 @@ class MinecraftSafetyGame {
     }
 
     this.safetyGauge.update(delta, this.player.position, this.campingObjects);
-    this.hud.update(this.player.position);
+
+    const nearbyNPC = this.npcManager.getNearbyNPC(this.player.position);
+    const nearbyLitter = this.npcManager.getNearbyLitter(this.player.position);
+
+    this.hud.update(
+      this.player.position,
+      nearbyNPC,
+      nearbyLitter,
+      (npc) => this.openNPCDialogue(npc),
+      (litter) => this.collectLitterItem(litter)
+    );
 
     this.renderer.render(this.scene, this.camera);
   }
