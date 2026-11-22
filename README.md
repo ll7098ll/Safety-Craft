@@ -203,7 +203,7 @@ safety-craft/
 ├── SAFETY_GUIDE.md             # 초등 캠핑 안전 핵심 6계명 교육 가이드
 ├── CONTRIBUTING.md             # 오픈소스 기여 가이드라인
 ├── CHANGELOG.md                # 버전별 릴리즈 변경 내역
-└── LICENSE.md                  # MIT License
+└── LICENSE                  # MIT License
 ```
 
 ---
@@ -220,7 +220,7 @@ safety-craft/
 
 ## 📄 라이선스 (License)
 
-본 프로젝트는 [MIT License](LICENSE.md)에 따라 자유롭게 수정, 배포 및 상업적/비상업적 활용이 가능합니다.
+본 프로젝트는 [MIT License](LICENSE)에 따라 자유롭게 수정, 배포 및 상업적/비상업적 활용이 가능합니다.
 
 ---
 
